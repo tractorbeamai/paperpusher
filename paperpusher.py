@@ -108,7 +108,7 @@ class PaperPusher:
         self.index.append((embedding, metadata))
         self.values[key] = value
 
-    def search(self, query: str, k: int = 5) -> list[tuple[float, dict[str, Any]]]:
+    def search(self, query: str, k: int = 3) -> list[tuple[float, dict[str, Any]]]:
         """Search for information similar to query string.
 
         Performs semantic search using cosine similarity between the query embedding
@@ -116,7 +116,7 @@ class PaperPusher:
 
         Args:
             query: Natural language search query.
-            k: Number of top results to return. Default is 5.
+            k: Number of top results to return. Default is 3.
 
         Returns:
             List of tuples containing (similarity_score, metadata_dict), sorted by

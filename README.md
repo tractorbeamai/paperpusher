@@ -45,7 +45,7 @@ pusher.save(
     authored_by="alice"
 )
 
-# Search using natural language (returns top 5 results by default)
+# Search using natural language (returns top 3 results by default)
 results = pusher.search("Q1 planning decisions")
 # Returns list of (similarity_score, metadata) tuples
 for score, metadata in results:
