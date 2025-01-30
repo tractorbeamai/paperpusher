@@ -91,17 +91,19 @@ class PaperPusher:
         embedding = np.array(response.data[0].embedding)
         return embedding
 
-    def _get_embedding_for_metadata(self, description: str, intended_use: str) -> Embedding:
+    def _get_embedding_for_metadata(self, key: str, description: str, intended_use: str, authored_by: str) -> Embedding:
         """Get embedding vector for content metadata.
 
         Args:
+            key: Unique identifier for the content.
             description: Content description text.
             intended_use: Description of content's intended use.
+            authored_by: Identifier of the agent/user storing this content.
 
         Returns:
             numpy.ndarray: Combined embedding for metadata.
         """
-        metadata_text = f"{description} {intended_use}"
+        metadata_text = f"{key} {description} {intended_use} {authored_by}"
         return self._get_embedding_from_openai(metadata_text)
 
     def _cosine_similarity(self, a: Embedding, b: Embedding):
@@ -142,7 +144,7 @@ class PaperPusher:
             "accessed_by": {},
         }
 
-        embedding = self._get_embedding_for_metadata(description, intended_use)
+        embedding = self._get_embedding_for_metadata(key, description, intended_use, authored_by)
         self.index[embedding] = metadata
         self.values[key] = value
 
