@@ -3,43 +3,6 @@
 This class implements a semantic information store that allows storing, searching and retrieving
 text content based on semantic similarity. It uses OpenAI embeddings to create vector representations
 of content metadata, enabling natural language search capabilities.
-
-Key features:
-- Store text content with descriptive metadata
-- Search stored information using natural language queries
-- Track content access patterns
-- Persist state to disk
-- OpenAI-compatible tool schemas for LLM integration
-
-Example usage:
-    pusher = PaperPusher()
-
-    # Store some information
-    pusher.save(
-        key="meeting-2024-01",
-        description="Q1 planning meeting notes",
-        intended_use="Reference for action items and decisions",
-        value="Meeting minutes...",
-        authored_by="alice"
-    )
-
-    # Search for relevant information
-    results = pusher.search("Q1 planning decisions")
-    # Results will be a list of tuples with (similarity_score, metadata_dict):
-    # [
-    #     (0.89, {
-    #         "key": "meeting-2024-01",
-    #         "description": "Q1 planning meeting notes",
-    #         "intended_use": "Reference for action items and decisions",
-    #         "authored_by": "alice",
-    #         "created_at": "2024-01-15T10:30:00"
-    #     }),
-    #     (0.76, {...}),
-    # ]
-
-    # Retrieve specific content
-    notes = pusher.get_value("meeting-2024-01")
-    # Returns: "Meeting minutes..."
 """
 
 import datetime
@@ -75,7 +38,7 @@ class PaperPusher:
         self.similarity_threshold = 0.5
         self.openai_client = openai_client or openai.OpenAI()
         self.openai_embedding_model = "text-embedding-3-small"
-        self.index: dict[Embedding, dict[str, Any]] = {}
+        self.index: list[tuple[Embedding, dict[str, Any]]] = []
         self.values: dict[str, str] = {}
 
     def _get_embedding_from_openai(self, text: str) -> Embedding:
@@ -145,10 +108,10 @@ class PaperPusher:
         }
 
         embedding = self._get_embedding_for_metadata(key, description, intended_use, authored_by)
-        self.index[embedding] = metadata
+        self.index.append((embedding, metadata))
         self.values[key] = value
 
-    def search(self, query: str) -> list[dict[str, Any]]:
+    def search(self, query: str) -> list[tuple[float, dict[str, Any]]]:
         """Search for information similar to query string.
 
         Performs semantic search using cosine similarity between the query embedding
@@ -167,14 +130,12 @@ class PaperPusher:
             return []
 
         similarities = [
-            (self._cosine_similarity(query_embedding, emb), metadata) for emb, metadata in self.index.items()
+            (self._cosine_similarity(query_embedding, emb), metadata)
+            for emb, metadata in self.index
+            if self._cosine_similarity(query_embedding, emb) >= self.similarity_threshold
         ]
 
-        filtered_similarities = [
-            (score, metadata) for score, metadata in similarities if score >= self.similarity_threshold
-        ]
-
-        return sorted(filtered_similarities, key=lambda x: x[0], reverse=True)
+        return sorted(similarities, key=lambda x: x[0], reverse=True)
 
     def get_value(self, agent_identifier: str, key: str) -> str:
         """Retrieve content value by key.
@@ -193,7 +154,7 @@ class PaperPusher:
             raise KeyError(f"No information found with key: {key}")
 
         # Find the metadata for this key
-        for _, metadata in self.index.items():
+        for _, metadata in self.index:
             if metadata["key"] == key:
                 # Update accessed_by with current timestamp
                 metadata["accessed_by"][agent_identifier] = datetime.datetime.now()
