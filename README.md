@@ -21,9 +21,8 @@ Think of it as passing notes and memos in an office, but with the power of seman
    pip install openai numpy
    ```
 3. Set your OpenAI API key:
-   ```python
-   import os
-   os.environ["OPENAI_API_KEY"] = "your-api-key"
+   ```bash
+   export OPENAI_API_KEY=<your-api-key>
    ```
 
 ## Usage
