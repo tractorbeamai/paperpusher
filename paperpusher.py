@@ -266,7 +266,7 @@ class PaperPusher:
             )
             return f"Information stored with key: {tool_args['key']}"
 
-        elif tool_name == "semantic_search":
+        elif tool_name == "search_information":
             results = self.search(tool_args["query"])
             return [
                 {
