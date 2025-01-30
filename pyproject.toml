@@ -1,0 +1,31 @@
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear (finds likely bugs and design problems)
+    "C4",  # flake8-comprehensions (better list/set/dict comprehensions)
+    "PLC", # pylint conventions
+    "PLE", # pylint errors
+    "PLR", # pylint refactoring
+    "PLW", # pylint warnings
+    "N",   # pep8-naming
+    "D",   # pydocstring
+    "UP",  # pyupgrade (modernize syntax)
+    "RUF", # ruff-specific rules
+    "W",   # pycodestyle warnings
+    "C90", # mccabe complexity
+    "T20", # flake8-print
+    "ERA", # eradicate (commented out code)
+]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "double"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
