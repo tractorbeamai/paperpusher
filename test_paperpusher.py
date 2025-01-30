@@ -44,7 +44,6 @@ def paper_pusher(mock_openai_client):
 
 def test_initialization(paper_pusher):
     """Test PaperPusher initialization."""
-    assert paper_pusher.similarity_threshold == 0.5
     assert paper_pusher.openai_embedding_model == "text-embedding-3-small"
     assert isinstance(paper_pusher.index, list)
     assert isinstance(paper_pusher.values, dict)
@@ -255,3 +254,34 @@ def test_save_and_load_file(paper_pusher, tmp_path):
     _, loaded_metadata = new_pusher.index[0]
     assert orig_metadata["key"] == loaded_metadata["key"]
     assert orig_metadata["description"] == loaded_metadata["description"]
+
+
+def test_search_with_k(paper_pusher):
+    """Test search with different k values."""
+    # Add test data
+    for i in range(10):
+        paper_pusher.save(
+            key=f"doc-{i}",
+            description=f"Test document {i}",
+            intended_use="Testing search",
+            value=f"Content {i}",
+            authored_by="test-user",
+        )
+
+    # Test default k=5
+    results = paper_pusher.search("test document")
+    assert len(results) <= 5  # Should return at most 5 results
+
+    # Test custom k
+    results = paper_pusher.search("test document", k=3)
+    assert len(results) <= 3  # Should return at most 3 results
+
+    # Test k larger than available documents
+    results = paper_pusher.search("test document", k=20)
+    assert len(results) <= 10  # Should return all available documents
+
+    # Verify results are sorted by similarity
+    for results in [paper_pusher.search("test document", k=k) for k in [3, 5, 10]]:
+        if len(results) > 1:
+            for i in range(len(results) - 1):
+                assert results[i][0] >= results[i + 1][0]

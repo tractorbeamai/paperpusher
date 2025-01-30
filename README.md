@@ -45,11 +45,14 @@ pusher.save(
     authored_by="alice"
 )
 
-# Search using natural language
+# Search using natural language (returns top 5 results by default)
 results = pusher.search("Q1 planning decisions")
 # Returns list of (similarity_score, metadata) tuples
 for score, metadata in results:
     print(f"Score: {score:.2f}, Key: {metadata['key']}")
+
+# Search with custom number of results
+results = pusher.search("Q1 planning decisions", k=10)  # Get top 10 results
 
 # Retrieve specific content
 notes = pusher.get_value("agent1", "meeting-2024-01")
@@ -80,22 +83,30 @@ result = pusher.execute_tool(
         "value": "Detailed analysis..."
     }
 )
+
+# Search with custom k parameter
+results = pusher.execute_tool(
+    agent_identifier="agent1",
+    tool_name="search_information",
+    tool_args={
+        "query": "customer feedback",
+        "k": 10  # Get top 10 results
+    }
+)
 ```
 
 ## Configuration
 
-- `similarity_threshold`: Minimum similarity score (0-1) for search results. Default: 0.5
 - `openai_embedding_model`: OpenAI model for embeddings. Default: "text-embedding-3-small"
 
 ```python
 pusher = PaperPusher()
-pusher.similarity_threshold = 0.7  # Increase similarity threshold
 pusher.openai_embedding_model = "text-embedding-3-large"  # Use larger model
 ```
 
 ## How It Works
 
-PaperPusher uses OpenAI embeddings to create vector representations of content metadata, enabling semantic search capabilities. When you store information, it generates embeddings for the metadata (description and intended use). When you search, it converts your query to an embedding and finds the most similar content using cosine similarity.
+PaperPusher uses OpenAI embeddings to create vector representations of content metadata, enabling semantic search capabilities. When you store information, it generates embeddings for the metadata (description and intended use). When you search, it converts your query to an embedding and finds the most similar content using cosine similarity, returning the top k results.
 
 ## Limitations
 

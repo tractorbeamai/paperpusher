@@ -23,8 +23,6 @@ class PaperPusher:
     metadata that enables natural language search.
 
     Attributes:
-        similarity_threshold (float): Minimum similarity score (0-1) for search results.
-            Default 0.5.
         openai_embedding_model (str): OpenAI model ID to use for embeddings.
             Default "text-embedding-3-small".
     """
@@ -35,7 +33,6 @@ class PaperPusher:
         Args:
             openai_client: Optional OpenAI client instance. If not provided, a default client will be created.
         """
-        self.similarity_threshold = 0.5
         self.openai_client = openai_client or openai.OpenAI()
         self.openai_embedding_model = "text-embedding-3-small"
         self.index: list[tuple[Embedding, dict[str, Any]]] = []
@@ -69,7 +66,7 @@ class PaperPusher:
         metadata_text = f"{key} {description} {intended_use} {authored_by}"
         return self._get_embedding_from_openai(metadata_text)
 
-    def _cosine_similarity(self, a: Embedding, b: Embedding):
+    def _cosine_similarity(self, a: Embedding, b: Embedding) -> float:
         """Calculate cosine similarity between two embedding vectors.
 
         Args:
@@ -79,7 +76,7 @@ class PaperPusher:
         Returns:
             float: Cosine similarity score between 0 and 1.
         """
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
     def save(
         self,
@@ -111,7 +108,7 @@ class PaperPusher:
         self.index.append((embedding, metadata))
         self.values[key] = value
 
-    def search(self, query: str) -> list[tuple[float, dict[str, Any]]]:
+    def search(self, query: str, k: int = 5) -> list[tuple[float, dict[str, Any]]]:
         """Search for information similar to query string.
 
         Performs semantic search using cosine similarity between the query embedding
@@ -119,23 +116,21 @@ class PaperPusher:
 
         Args:
             query: Natural language search query.
+            k: Number of top results to return. Default is 5.
 
         Returns:
             List of tuples containing (similarity_score, metadata_dict), sorted by
-            descending similarity score. Only results above similarity_threshold are included.
+            descending similarity score. Returns at most k results.
         """
         query_embedding = self._get_embedding_from_openai(query)
 
         if not self.index:
             return []
 
-        similarities = [
-            (self._cosine_similarity(query_embedding, emb), metadata)
-            for emb, metadata in self.index
-            if self._cosine_similarity(query_embedding, emb) >= self.similarity_threshold
-        ]
+        similarities = [(self._cosine_similarity(query_embedding, emb), metadata) for emb, metadata in self.index]
 
-        return sorted(similarities, key=lambda x: x[0], reverse=True)
+        # Sort by similarity score and return top k results
+        return sorted(similarities, key=lambda x: x[0], reverse=True)[:k]
 
     def get_value(self, agent_identifier: str, key: str) -> str:
         """Retrieve content value by key.
@@ -212,7 +207,7 @@ class PaperPusher:
                             "query": {
                                 "type": "string",
                                 "description": "Search query text to find relevant information",
-                            }
+                            },
                         },
                         "required": ["query"],
                     },
@@ -278,7 +273,7 @@ class PaperPusher:
             ]
 
         elif tool_name == "retrieve_information":
-            return self.get_value(tool_args["key"])
+            return self.get_value(agent_identifier, tool_args["key"])
 
         else:
             raise ValueError(f"Unknown tool: {tool_name}")
