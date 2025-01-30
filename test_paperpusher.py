@@ -36,8 +36,10 @@ def test_initialization(paper_pusher):
     """Test PaperPusher initialization."""
     assert paper_pusher.similarity_threshold == 0.5
     assert paper_pusher.openai_embedding_model == "text-embedding-3-small"
-    assert isinstance(paper_pusher.index, dict)
+    assert isinstance(paper_pusher.index, list)
     assert isinstance(paper_pusher.values, dict)
+    assert len(paper_pusher.index) == 0
+    assert len(paper_pusher.values) == 0
 
 
 def test_save_and_get_value(paper_pusher):
@@ -64,18 +66,16 @@ def test_save_and_get_value(paper_pusher):
     assert retrieved_value == value
 
     # Verify metadata was stored
-    metadata_found = False
-    for _, metadata in paper_pusher.index.items():
-        if metadata["key"] == key:
-            metadata_found = True
-            assert metadata["description"] == description
-            assert metadata["intended_use"] == intended_use
-            assert metadata["authored_by"] == authored_by
-            assert isinstance(metadata["created_at"], datetime.datetime)
-            assert agent_id in metadata["accessed_by"]
-            assert isinstance(metadata["accessed_by"][agent_id], datetime.datetime)
-
-    assert metadata_found
+    assert len(paper_pusher.index) == 1
+    embedding, metadata = paper_pusher.index[0]
+    assert isinstance(embedding, np.ndarray)
+    assert metadata["key"] == key
+    assert metadata["description"] == description
+    assert metadata["intended_use"] == intended_use
+    assert metadata["authored_by"] == authored_by
+    assert isinstance(metadata["created_at"], datetime.datetime)
+    assert agent_id in metadata["accessed_by"]
+    assert isinstance(metadata["accessed_by"][agent_id], datetime.datetime)
 
 
 def test_get_value_nonexistent_key(paper_pusher):
@@ -173,10 +173,15 @@ def test_save_and_load_file(paper_pusher, tmp_path):
     paper_pusher.save_to_file(str(test_file))
 
     # Create new instance and load state
-    new_pusher = PaperPusher()
+    new_pusher = PaperPusher(openai_client=paper_pusher.openai_client)  # Use same mock client
     new_pusher.load_from_file(str(test_file))
 
     # Verify data was preserved
     assert "test-save" in new_pusher.values
     assert new_pusher.values["test-save"] == "Test content"
     assert len(new_pusher.index) == len(paper_pusher.index)
+    # Verify first item's metadata
+    _, orig_metadata = paper_pusher.index[0]
+    _, loaded_metadata = new_pusher.index[0]
+    assert orig_metadata["key"] == loaded_metadata["key"]
+    assert orig_metadata["description"] == loaded_metadata["description"]
