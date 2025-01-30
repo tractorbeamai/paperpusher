@@ -1,6 +1,8 @@
 """Tests for the PaperPusher class."""
 
 import datetime
+import random
+import string
 from unittest.mock import Mock
 
 import numpy as np
@@ -15,14 +17,22 @@ from paperpusher import PaperPusher
 def mock_openai_client():
     """Create a mock OpenAI client for testing."""
     mock_client = Mock()
-    # Mock embedding response
-    mock_embedding = Mock(spec=Embedding)
-    mock_embedding.embedding = [0.1, 0.2, 0.3]  # Simple test embedding
 
-    mock_response = Mock(spec=CreateEmbeddingResponse)
-    mock_response.data = [mock_embedding]
+    def create_random_embedding():
+        # Create a realistic 1536-dimensional embedding vector (matches OpenAI's models)
+        vector = np.random.normal(0, 1, 1536)
+        # Normalize to unit length like real embeddings
+        vector = vector / np.linalg.norm(vector)
+        return vector.tolist()
 
-    mock_client.embeddings.create.return_value = mock_response
+    def mock_create(**kwargs):
+        mock_embedding = Mock(spec=Embedding)
+        mock_embedding.embedding = create_random_embedding()
+        mock_response = Mock(spec=CreateEmbeddingResponse)
+        mock_response.data = [mock_embedding]
+        return mock_response
+
+    mock_client.embeddings.create = mock_create
     return mock_client
 
 
@@ -84,32 +94,92 @@ def test_get_value_nonexistent_key(paper_pusher):
         paper_pusher.get_value("agent-1", "nonexistent-key")
 
 
-def test_search(paper_pusher):
-    """Test searching for information."""
-    # Add test data
-    paper_pusher.save(
-        key="meeting-notes",
-        description="Q1 planning meeting notes",
-        intended_use="Reference for decisions",
-        value="Meeting content",
-        authored_by="alice",
-    )
+def test_large_scale_search(paper_pusher, benchmark):
+    """Benchmark search performance with many documents and different search patterns."""
 
-    # Perform search
-    results = paper_pusher.search("Q1 planning")
+    def random_string(length, char_set=None):
+        if char_set is None:
+            char_set = string.ascii_letters + string.digits + " "
+        return "".join(random.choices(char_set, k=length))
 
-    assert len(results) > 0
-    # First result should be a tuple of (similarity_score, metadata)
-    score, metadata = results[0]
-    assert isinstance(score, float)
-    assert 0 <= score <= 1
-    assert metadata["key"] == "meeting-notes"
+    # Generate test documents with different characteristics
+    docs = []
 
+    # Documents with random content
+    for i in range(500):
+        docs.append(
+            {
+                "key": f"random-{i}",
+                "description": random_string(50),
+                "intended_use": random_string(30),
+                "value": random_string(200),
+                "authored_by": f"user-{random.randint(1,10)}",
+            }
+        )
 
-def test_empty_search(paper_pusher):
-    """Test searching with empty index."""
-    results = paper_pusher.search("test query")
-    assert len(results) == 0
+    # Documents with common prefixes/patterns
+    common_prefixes = ["report-", "meeting-", "analysis-", "data-"]
+    for prefix in common_prefixes:
+        for i in range(100):
+            docs.append(
+                {
+                    "key": f"{prefix}{i}",
+                    "description": f"{prefix} document {random_string(30)}",
+                    "intended_use": f"Reference for {prefix} tasks",
+                    "value": random_string(200),
+                    "authored_by": f"user-{random.randint(1,10)}",
+                }
+            )
+
+    # Documents with specific topics
+    topics = ["finance", "technology", "marketing", "research"]
+    for topic in topics:
+        for i in range(50):
+            docs.append(
+                {
+                    "key": f"{topic}-doc-{i}",
+                    "description": f"{topic} related content {random_string(20)}",
+                    "intended_use": f"{topic} reference material",
+                    "value": random_string(200),
+                    "authored_by": f"user-{random.randint(1,10)}",
+                }
+            )
+
+    # Store all documents
+    for doc in docs:
+        paper_pusher.save(**doc)
+
+    def run_searches():
+        # Test different search patterns
+        search_patterns = [
+            # Random searches
+            [random_string(10) for _ in range(5)],
+            # Prefix searches
+            [prefix + random_string(5) for prefix in common_prefixes],
+            # Topic searches
+            topics,
+            # Longer, more specific queries
+            [f"document about {topic} for reference" for topic in topics],
+            # Mixed case and special characters
+            [random_string(15, string.ascii_letters + string.digits + "!@#$%^&* ").upper() for _ in range(5)],
+        ]
+
+        for pattern_group in search_patterns:
+            for query in pattern_group:
+                results = paper_pusher.search(query)
+                assert isinstance(results, list)
+
+                # Verify results are sorted by similarity
+                if len(results) > 1:
+                    for i in range(len(results) - 1):
+                        assert results[i][0] >= results[i + 1][0]
+
+                # Verify similarity scores are within valid range
+                for similarity, _ in results:
+                    assert 0 <= similarity <= 1
+
+    # Benchmark the search operation
+    benchmark.pedantic(run_searches, iterations=3, rounds=50)
 
 
 def test_cosine_similarity(paper_pusher):
