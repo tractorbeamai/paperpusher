@@ -52,9 +52,6 @@ import openai
 type Embedding = np.ndarray[float, np.dtype[np.float64]]
 
 
-openai_client = openai.OpenAI()
-
-
 class PaperPusher:
     """Semantic information store for text content.
 
@@ -69,9 +66,14 @@ class PaperPusher:
             Default "text-embedding-3-small".
     """
 
-    def __init__(self):
-        """Initialize an empty PaperPusher instance with default settings."""
+    def __init__(self, openai_client: openai.OpenAI = None):
+        """Initialize an empty PaperPusher instance with default settings.
+
+        Args:
+            openai_client: Optional OpenAI client instance. If not provided, a default client will be created.
+        """
         self.similarity_threshold = 0.5
+        self.openai_client = openai_client or openai.OpenAI()
         self.openai_embedding_model = "text-embedding-3-small"
         self.index: dict[Embedding, dict[str, Any]] = {}
         self.values: dict[str, str] = {}
@@ -85,7 +87,7 @@ class PaperPusher:
         Returns:
             numpy.ndarray: Embedding vector from OpenAI.
         """
-        response = openai_client.embeddings.create(input=text, model=self.openai_embedding_model)
+        response = self.openai_client.embeddings.create(input=text, model=self.openai_embedding_model)
         embedding = np.array(response.data[0].embedding)
         return embedding
 

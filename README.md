@@ -31,7 +31,10 @@ Think of it as passing notes and memos in an office, but with the power of seman
 from paper_pusher import PaperPusher
 
 # Initialize the store
-pusher = PaperPusher()
+pusher = PaperPusher() 
+
+# (optionally, use an existing OpenAI client)
+# pusher = PaperPusher(openai_client=openai.OpenAI())
 
 # Store information
 pusher.save(
